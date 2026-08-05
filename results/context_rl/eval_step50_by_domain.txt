@@ -1,0 +1,2 @@
+[EVAL 50] chrome:0.6000 gimp:0.6234 libreoffice_calc:0.3229 libreoffice_impress:0.3628 libreoffice_writer:0.4340 multi_apps:0.2312 os:0.6308 thunderbird:0.1364 vlc:0.4884 vs_code:0.6667 ALL:0.4093
+[EVAL COVERAGE] step=50 unique_tasks=297 total_trajs=777

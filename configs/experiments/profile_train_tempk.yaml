@@ -1,0 +1,142 @@
+# profile_train_tempk.yaml
+#
+# Purpose: temp=1.0 profiling sweep —— run k=8 rollouts per task on the [full 172] train tasks,
+# no training; only to measure each task's true pass@8 under the training distribution (temp=1.0), then regenerate the curated set from it.
+#
+# Why it exists (vs. the signal-density run greedy-43 flatline):
+#   the signal-density run's 43-task curated set was built with greedy (temp=0), which condemned and deleted 85 "all-greedy-failures" tasks.
+#   but golden-hard tasks with true pass rate ~0.15 fail every greedy attempt (0/3 → wrongly deleted) yet occasionally
+#   succeed at temp=1.0 (1~2/8) —— exactly the tasks with the most gradient signal. Only by re-measuring the full 172 at temp=1.0
+#   can these false-dead be rescued. Running only the 43 will never surface them, so the train set here must be the full set.
+#
+# Rollout params are [exactly identical] to the signal-density run's training rollout (Route B matched horizon:
+# max_steps=50 == eval, temp=1.0, top_p=1.0, rep_pen=1.0, img4), guaranteeing the measured
+# pass@8 is the true value under the training distribution. ⚠️ profiling horizon MUST = training horizon: profiling at 30
+# would falsely condemn tasks that need 31–50 steps but survive at 50 (measured on B2-Thinking full 309:
+# 7% of successes across the 8 training domains self-terminate at steps 31–49 = positive signal definitively lost at cap=30, spread across
+# thunderbird/calc/writer/vlc/vs_code). Uses the BASE model
+# (start_from_scratch=true → step-1 rollout is base), matching the signal-density run starting from base.
+#
+# How to run:
+#   nohup python osworld_rl.py config=configs/experiments/profile_train_tempk.yaml \
+#        > logs/profile_sweep.log 2>&1 &
+#   # the rollout dump is written to runs/profile_train_tempk/temp_data/rl_rollout_results.json
+#   # [kill as soon as that file appears] (before *.pt preproc + training; saves hours):
+#   #   pkill -f profile_train_tempk      # or watch the log for the end of the rollout phase
+#   # then regenerate the curated set (write to _v2, do NOT overwrite the greedy version: a running signal-density run re-reads the meta at every rollout step,
+#   # so overwriting would contaminate the in-flight signal-density run; also keep greedy-43 as the paper comparison):
+#   python scripts/curate_trainable_tasks.py \
+#        --from-rollout-json runs/profile_train_tempk/temp_data/rl_rollout_results.json \
+#        --out OSWorld-main/evaluation_examples/train_v2_signal_v2.json
+#   # expected surviving task count > 43 (rescues the golden-hard tasks greedy wrongly deleted)
+#   # → in the signal-density run yaml, point dataset.train.environment_data_dir at train_v2_signal_v2
+#
+# Cost: 172×8 = 1376 trajs ≈ 14 waves (96 concurrent); max_steps=50 vs 30 is about +40% wall-clock
+# (high frac_hit_cap, over half the trajectories spin to the cap); a bit over half a day, one-off; no training, no ckpt saved.
+
+defaults:
+    - ../osworld_rl
+
+model:
+    policy_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    policy_model_type: "qwen3vl"
+    reward_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    reward_model_type: "qwen3vl"
+    environment_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    optimized_name: "optimized"
+    optimized_reward_name: "optimized_reward"
+
+experiment:
+    project: "profile_train_tempk"
+    total_step: 1                  # only the step-1 rollout is needed (base model); kill after the dump
+    eval_every: 99999              # disable full eval
+    held_out_every: 99999          # disable held-out eval
+    save_every: 99999              # no ckpt saving (avoids writing 70GB shards)
+    start_from_scratch: true
+    current_epoch: 1
+    step0_held_out_eval: false     # skip step0 eval, go straight to rollout
+
+rollout:
+    action_space: "hybrid"
+    observation_type: "screenshot"
+    policy:
+        num_trial: 172             # ← full 172 train tasks (== train_v2_all_apps size; random.sample takes all)
+        num_rollout_per_trial: 8   # 8 per task → pass@8, resolution 1/8
+        max_steps: 50              # Route B: matched horizon == eval (the old 30 falsely condemned slow tasks like calc)
+        temperature: 1.0
+        top_p: 1.0
+        repetition_penalty: 1.0
+        max_image_history_length: 4
+    policy_evaluation:
+        max_steps: 50
+        temperature: 0.0
+        max_image_history_length: 4
+        num_rollout_per_trial: 1
+        num_trial: 0
+
+hybrid:
+    enabled: true
+    mcp_enabled: true
+    tool_retriever_top_k: 18
+    tool_retriever_backend: "bm25"
+    fallback_to_gui: true
+
+reward:
+    lambda_coef: 0.0
+    eta_initial: 0.0
+    eta_decay_steps: 30
+    length_penalty_coef: 0.05
+    max_steps_ref: 50              # Route B: moved 30→50 in sync with the horizon, otherwise long trajectories' length penalty is overestimated
+    step_fail_pen: 0.0
+    repeat_pen: 0.0
+    positive_advantage_only: false
+    acc_lower: 0.05
+    acc_upper: 0.95
+    cap_penalty: 0.2
+    terminate_bonus_efficient: 0.0
+    terminate_bonus_slow:      0.0
+    early_quit_pen:            0.0
+    graceful_fail_bonus:       0.0
+    false_success_pen:         0.0
+    no_progress_pen:           0.0
+    random_reward: false
+    normalize_mode: groupwise
+
+training:
+    kl_reference: "base"
+    beta: 0.2
+    eps: 0.20
+    entropy_coef: 0.0
+    max_grad_norm: 1.0
+    kl_warmup_steps:      0
+    kl_warmup_multiplier: 1.0
+    policy:
+        update_per_step: 4
+        max_gen_length: 8192
+
+optimizer:
+    name: adamw
+    params:
+        learning_rate: 3.0e-6
+        scale_lr: False
+        beta1: 0.9
+        beta2: 0.999
+        weight_decay: 0.0
+        epsilon: 1e-8
+
+dataset:
+    train:
+        environment_data_dir: "train_v2_all_apps"   # ← full 172 (profiling must sweep the whole set to rescue the false-dead)
+        domain: "all"
+        example: "all"
+    evaluation:
+        environment_data_dir: "test_all_no_internet"
+        domain: "all"
+        example: "all"
+    held_out_meta: "held_out_v2_eval"
+
+wandb:
+    entity: null
+    project: "hybrid-routing-rl"
+
+context_policy: "baseline"

@@ -1,0 +1,153 @@
+# context_rl.yaml — training/inference-consistent context-compression RL
+#
+# Motivation: at inference, skip_on_mcp_success + img2 (2-image history) saves
+#   ~36% input tokens / −38% peak context but costs −3.9pp accuracy. The lost
+#   accuracy is an observation-distribution shift, not a capability loss (the
+#   same model solves these tasks with full img4 context). Training with the
+#   SAME compressed observation rule in rollout recovers the behavior adaptation.
+#
+# Config lineage: identical to outcome_only_rl.yaml (symmetric outcome-only,
+#   74-task gradient band, full_coverage, horizon 50, lr 5e-6, KL-old β0.02,
+#   groupwise). The ONLY variables are the observation rule:
+#   context_policy=skip_on_mcp_success + max_image_history_length=2, applied to
+#   BOTH train rollout and held-out eval (train == inference throughout).
+#   Per-step training samples come straight from the rollout records, so
+#   rollout-sees-img2 => trains-on-img2 with no reward-side change.
+#
+# Pre-registered read-out (difference-in-differences; guard against
+# regression-to-the-mean by comparing against a same-protocol base anchor):
+#   1. Primary: img2 pass rate on the pre-registered degraded subset
+#      (ctx_degraded_train14.json), per-task, x3 reps, vs the base img2 anchor.
+#      Target >= +15pp with two consecutive same-direction probes.
+#   2. Main figure: the two-probe gap curve = probe_train_greedy(img4) -
+#      probe_train_greedy_img2 narrowing over steps; the img4 side must not drop
+#      (closing the gap by degrading img4 does not count).
+#   3. Per-task CLIMB/DROP counts; aggregate curves are reference only.
+#   4. Step-30 decision point: if the degraded-subset DiD is flat AND the gap
+#      does not close -> stop; a negative result is still a paper result.
+#
+# Kill-switch red lines (auto-kill + report):
+#   - mean_resp_len (train-loss) < 150 or entropy < 0.15  (entropy collapse)
+#   - held-out greedy false_success_rate ~doubles vs the step-0 img2 anchor
+#   - frac_hit_cap rises +0.15 vs the step-0 img2 anchor for 2 consecutive probes
+#     (img2's baseline runs higher than img4's, so this threshold is relative)
+#   - held-out drops below (step-0 - 6pp) for 2 consecutive probes
+#
+# Before running:
+#   1. Ensure the ctx_degraded_*.json subsets are in evaluation_examples/.
+#   2. Take step-0 base anchors with probe_train_greedy_img2 / probe_train_greedy.
+#   3. Pre-run self-check: [DS-CHECK] / [CKPT-SYNC] / first-window clip=0.
+#
+# Launch:
+#   OSWORLD_LOCAL_TEMP=... nohup python osworld_rl.py \
+#     config=configs/experiments/context_rl.yaml > logs/context_rl.log 2>&1 &
+
+defaults:
+    - ../osworld_rl
+
+model:
+    policy_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    policy_model_type: "qwen3vl"
+    reward_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    reward_model_type: "qwen3vl"
+    environment_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    optimized_name: "optimized"
+    optimized_reward_name: "optimized_reward"
+
+experiment:
+    project: "context_rl"   # file name must == project name
+    total_step: 50
+    eval_every: 50
+    held_out_every: 5
+    save_every: 10           # dual probes consume ckpts at a 10-step cadence
+    start_from_scratch: true
+    current_epoch: 1
+    step0_held_out_eval: true   # step-0 img2 anchor (held-out 48 side)
+
+rollout:
+    action_space: "hybrid"
+    observation_type: "screenshot"
+    policy:
+        num_trial: 12                  # no effect on selection under full_coverage; kept for compatibility only
+        num_rollout_per_trial: 8
+        max_steps: 50                  # matched horizon == eval
+        temperature: 1.0
+        top_p: 1.0
+        repetition_penalty: 1.0
+        max_image_history_length: 2    # <- one of the two variables (outcome-only baseline uses 4)
+        full_coverage: true
+    policy_evaluation:
+        max_steps: 50
+        temperature: 0.0
+        max_image_history_length: 2    # ← held-out monitoring uses the same observation policy (train/inference-consistent throughout)
+        num_rollout_per_trial: 3
+        num_trial: 0
+
+hybrid:
+    enabled: true
+    mcp_enabled: true
+    tool_retriever_top_k: 18
+    tool_retriever_backend: "bm25"
+    fallback_to_gui: true
+
+reward:
+    lambda_coef: 0.0
+    eta_initial: 0.0
+    eta_decay_steps: 30
+    length_penalty_coef: 0.05
+    max_steps_ref: 50
+    step_fail_pen: 0.0
+    repeat_pen: 0.0
+    positive_advantage_only: false     # symmetric GRPO (do NOT split the symmetry; pos-adv-only collapses)
+    acc_lower: 0.05
+    acc_upper: 0.95
+    cap_penalty: 0.2
+    terminate_bonus_efficient: 0.0
+    terminate_bonus_slow:      0.0
+    early_quit_pen:            0.0
+    graceful_fail_bonus:       0.0
+    false_success_pen:         0.0
+    no_progress_pen:           0.0     # keep at 0: the hash check misfires under the skip policy; do not enable
+    format_pen:                0.0
+    mcp_tool_bonus:            0.0
+    random_reward: false
+    normalize_mode: groupwise
+
+training:
+    kl_reference: "old"       # trust-region vs pi_old; lets a narrow signal accumulate
+    beta: 0.02
+    eps: 0.20
+    entropy_coef: 0.0
+    max_grad_norm: 1.0
+    kl_warmup_steps:      0
+    kl_warmup_multiplier: 1.0
+    policy:
+        update_per_step: 4
+        max_gen_length: 8192
+
+optimizer:
+    name: adamw
+    params:
+        learning_rate: 5.0e-6   # stable setting (1e-5 diverges)
+        scale_lr: False
+        beta1: 0.9
+        beta2: 0.999
+        weight_decay: 0.0
+        epsilon: 1e-8
+
+dataset:
+    train:
+        environment_data_dir: "train_v2_signal_v2"   # 74 tasks, full gradient band
+        domain: "all"
+        example: "all"
+    evaluation:
+        environment_data_dir: "test_all_no_internet"
+        domain: "all"
+        example: "all"
+    held_out_meta: "held_out_v2_eval"   # the D6 subset is contained in it; per-task lookup recovers its curve
+
+wandb:
+    entity: null
+    project: "hybrid-routing-rl"
+
+context_policy: "skip_on_mcp_success"   # <- the other variable (outcome-only baseline = plain policy); both rollout paths honor it

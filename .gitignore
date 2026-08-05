@@ -1,0 +1,64 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.ipynb_checkpoints/
+
+# ---- secrets / env ----
+.env
+.envrc
+*.pem
+*.key
+
+# ---- training products (never commit) ----
+runs/
+logs/
+wandb/
+cache/
+OSWorld-main/cache/
+OSWorld-main/logs/
+OSWorld-main/results/
+sample/
+data_archive/
+temp_data/
+monitoring/
+runs_postmortem_logs/
+nohup.out
+resume_step.txt
+
+# reward-model query logs (runtime product)
+data/reward_queries/
+
+# ---- large binary artifacts (host / release, not git) ----
+*.qcow2
+*.qcow2.zip
+*.pt
+*.safetensors
+*.bin
+*.tar
+*.tar.gz
+*.zip
+models/
+OSWorld-main/docker_vm_data/
+
+# ---- eval result trees (screenshots / trajectories) ----
+baselines/**/pyautogui/
+baselines/**/screenshot/
+baselines/**/*.png
+baselines/**/*.jpg
+baselines/**/trajectory.json
+
+# ---- editor / OS ----
+.DS_Store
+.vscode/
+.idea/
+
+# ---- local tooling / misc ----
+.claude/
+*.bak*
+*.log
+.venv/
+venv/

@@ -1,0 +1,28 @@
+hybrid-routing-agent
+Copyright 2026 The hybrid-routing-agent authors.
+
+This product includes software developed by third parties, distributed under
+their respective licenses:
+
+1. verl — Volcano Engine Reinforcement Learning for LLM
+   Copyright 2023-2024 Bytedance Ltd. and/or its affiliates.
+   Apache License 2.0. https://github.com/volcengine/verl
+   (Used as the initial training scaffold. The vendored copy has been removed;
+   this project's training worker is standalone accelerate + DeepSpeed.)
+
+2. OSWorld — benchmark environment (vendored, modified, under OSWorld-main/)
+   Copyright the OSWorld / XLang authors.
+   See OSWorld-main/LICENSE and OSWorld-main/PATCHES.md for modifications.
+   https://github.com/xlang-ai/OSWorld
+
+3. Qwen3-VL — policy model (weights fetched separately from HuggingFace)
+   Copyright Alibaba Cloud. https://github.com/QwenLM/Qwen3-VL
+
+4. MCP server + tools — vendored under mcp_tools/ (mcp/mcp_server/ + client).
+   Derived from OSWorld-MCP (Apache-2.0), extended with this project's own tools
+   (the *_ours / *_ljt tool packages). See mcp_tools/NOTICE. This is the tool set
+   behind the paper's numbers; set MCP_SRC_ROOT=0 to use a stock OSWorld-MCP
+   checkout instead.
+
+Task definitions and evaluation data under OSWorld-main/evaluation_examples/
+originate from OSWorld and retain OSWorld's terms.

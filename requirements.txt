@@ -1,0 +1,40 @@
+# Core runtime dependencies for hybrid-routing-agent (OSWorld GUI+MCP RL).
+# Pins mirror the environment the paper results were produced with; see
+# requirements_rlanything.txt for the full frozen environment (335 pkgs).
+#
+# NOTE: torch / vllm / flash-attn are tightly coupled to your CUDA toolkit and
+# GPU. Install torch matching your CUDA first, then vllm, then the rest. The
+# pins below are what we ran; adjust to your hardware if needed.
+
+# --- deep learning core ---
+torch==2.10.0
+torchvision==0.25.0
+transformers==5.6.2
+accelerate==1.13.0
+deepspeed==0.18.9
+safetensors==0.7.0
+sentencepiece==0.2.1
+
+# --- rollout / serving ---
+vllm==0.19.1
+qwen-vl-utils==0.0.14
+
+# --- config / utils ---
+omegaconf==2.3.0
+numpy==2.2.6
+pillow==12.2.0
+pydantic==2.13.3
+tiktoken==0.12.0
+
+# --- reward-model API client (OpenAI-compatible; configured via env vars) ---
+openai==2.32.0
+anthropic==0.97.0
+
+# --- experiment tracking ---
+wandb==0.26.1
+
+# --- OSWorld benchmark env (vendored under OSWorld-main/; install its own
+#     requirements too): pip install -r OSWorld-main/requirements.txt ---
+
+# Optional: dense tool retriever backend (BM25 backend needs nothing extra)
+# sentence-transformers

@@ -1,0 +1,52 @@
+# -------------------------------
+# build-system
+# -------------------------------
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# -------------------------------
+# project (PEP 621 metadata)
+# -------------------------------
+# This is a research repository, run in place from the repo root
+# (e.g. `python osworld_rl.py config=configs/experiments/e37_ctx_rl.yaml`).
+# It is not published as an importable package; dependencies live in
+# requirements.txt. This file mainly carries metadata + tooling config.
+[project]
+name = "hybrid-routing-agent"
+version = "0.1.0"
+description = "RL for a hybrid GUI + MCP action space on OSWorld (Qwen3-VL-8B)"
+license = { text = "Apache-2.0" }
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.10"
+
+[tool.setuptools]
+# Do not try to auto-discover / build packages; this repo is run in place.
+py-modules = []
+
+# -------------------------------
+# tool.ruff - Linting configuration
+# -------------------------------
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "UP", "B", "I", "G"]
+ignore = [
+    "F405", "F403",   # star imports
+    "E731",           # lambda assignment
+    "B007",           # unused loop var
+    "UP032",          # f-string format
+    "G004",           # .log() uses f-string
+    "UP045", "UP035", # type-annotation / import upgrades
+]
+
+# -------------------------------
+# tool.mypy - typechecking config
+# -------------------------------
+[tool.mypy]
+pretty = true
+ignore_missing_imports = true
+explicit_package_bases = true
+follow_imports = "skip"
+ignore_errors = true

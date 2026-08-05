@@ -1,0 +1,135 @@
+# profile_heldout_tempk.yaml
+#
+# Purpose: base-model temp=1.0×8 profiling of the 48 held-out tasks —— no training; only to
+# split held-out into three tiers by base-model solvability, fixing the "aggregate held-out acc is structurally insensitive" measurement problem
+# (dense-bonus run forensics: of the 48, 24 always-0 + 7 always-1; only 15 oscillating tasks carry information — cannot resolve ≤5pp).
+#
+# Three-tier definition (pass@8, k=8, resolution 1/8):
+#   dead    : 0/8          → reported separately, excluded from the training criterion (RL cannot sample a positive; unlearnable in theory)
+#   movable : 1~7/8        → primary training-progress metric (held_movable_acc); expected ~15-22 tasks
+#   solved  : 8/8          → regression monitoring (a drop = training is destroying existing capability)
+# ⚠️ tiers MUST be assigned with the BASE model (start_from_scratch=true → step-1 rollout is base),
+#   never from evals of a mid-training ckpt (selection bias / regression to the mean).
+# ⚠️ greedy-dead ≠ truly dead: tasks measured greedy 0/3 on the train set pass 0.15~0.3 at temp=1.0;
+#   some of the dense-bonus run's 24 FLAT@0 may be wrongly condemned by the greedy protocol —— hence temp=1.0 here.
+#
+# How to run (same as profile_train_tempk: kill as soon as the rollout dump appears; never enters training):
+#   nohup python osworld_rl.py config=configs/experiments/profile_heldout_tempk.yaml \
+#        > logs/profile_heldout.log 2>&1 &
+#   # dump: runs/profile_heldout_tempk/temp_data/rl_rollout_results.json → kill as soon as it appears (by PID)
+#   # tiering (reuse the curate script's aggregation logic, thresholds moved to the 0/1 boundaries):
+#   python scripts/curate_trainable_tasks.py \
+#        --from-rollout-json runs/profile_heldout_tempk/temp_data/rl_rollout_results.json \
+#        --lo 0.001 --hi 0.999 \
+#        --out OSWorld-main/evaluation_examples/held_out_v2_movable.json
+#   # (lo/hi at the extremes → what remains is the movable tier; copy dead/solved from the aggregate printout)
+#
+# Cost: 48×8 = 384 trajs ≈ 4 waves (96 concurrent), h50, about 2-3 hours, one-off.
+# ⚠️ held-out tasks are for measurement only; their trajectories must NEVER enter any training/SFT data.
+
+defaults:
+    - ../osworld_rl
+
+model:
+    policy_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    policy_model_type: "qwen3vl"
+    reward_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    reward_model_type: "qwen3vl"
+    environment_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    optimized_name: "optimized"
+    optimized_reward_name: "optimized_reward"
+
+experiment:
+    project: "profile_heldout_tempk"
+    total_step: 1                  # only the step-1 rollout is needed (base model); kill after the dump
+    eval_every: 99999
+    held_out_every: 99999
+    save_every: 99999
+    start_from_scratch: true
+    current_epoch: 1
+    step0_held_out_eval: false
+
+rollout:
+    action_space: "hybrid"
+    observation_type: "screenshot"
+    policy:
+        num_trial: 48              # ← full 48 held-out tasks
+        num_rollout_per_trial: 8   # pass@8, resolution 1/8
+        max_steps: 50
+        temperature: 1.0
+        top_p: 1.0
+        repetition_penalty: 1.0
+        max_image_history_length: 4
+    policy_evaluation:
+        max_steps: 50
+        temperature: 0.0
+        max_image_history_length: 4
+        num_rollout_per_trial: 1
+        num_trial: 0
+
+hybrid:
+    enabled: true
+    mcp_enabled: true
+    tool_retriever_top_k: 18
+    tool_retriever_backend: "bm25"
+    fallback_to_gui: true
+
+reward:
+    lambda_coef: 0.0
+    eta_initial: 0.0
+    eta_decay_steps: 30
+    length_penalty_coef: 0.05
+    max_steps_ref: 50
+    step_fail_pen: 0.0
+    repeat_pen: 0.0
+    positive_advantage_only: false
+    acc_lower: 0.05
+    acc_upper: 0.95
+    cap_penalty: 0.2
+    terminate_bonus_efficient: 0.0
+    terminate_bonus_slow:      0.0
+    early_quit_pen:            0.0
+    graceful_fail_bonus:       0.0
+    false_success_pen:         0.0
+    no_progress_pen:           0.0
+    random_reward: false
+    normalize_mode: groupwise
+
+training:
+    kl_reference: "base"
+    beta: 0.2
+    eps: 0.20
+    entropy_coef: 0.0
+    max_grad_norm: 1.0
+    kl_warmup_steps:      0
+    kl_warmup_multiplier: 1.0
+    policy:
+        update_per_step: 4
+        max_gen_length: 8192
+
+optimizer:
+    name: adamw
+    params:
+        learning_rate: 3.0e-6
+        scale_lr: False
+        beta1: 0.9
+        beta2: 0.999
+        weight_decay: 0.0
+        epsilon: 1e-8
+
+dataset:
+    train:
+        environment_data_dir: "held_out_v2_eval"   # ← profiling target = held-out 48 (measurement only, no training)
+        domain: "all"
+        example: "all"
+    evaluation:
+        environment_data_dir: "test_all_no_internet"
+        domain: "all"
+        example: "all"
+    held_out_meta: "held_out_v2_eval"
+
+wandb:
+    entity: null
+    project: "hybrid-routing-rl"
+
+context_policy: "baseline"

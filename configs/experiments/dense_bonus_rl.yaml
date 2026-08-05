@@ -1,0 +1,142 @@
+# dense_bonus_rl.yaml
+#
+# The dense-tool-bonus run (paper Section 5.2): outcome-only reward plus a
+# dense, post-normalization MCP tool bonus. Probes whether an explicit reward
+# term can make the policy use tools it already has.
+#
+# Three deliberate choices (vs. the plain outcome-only recipe):
+#   1. kl_reference = old (rollout-time policy). Anchoring to the base model
+#      instead cancels the bonus: the per-step drift it induces is smaller than
+#      the pull back to base.
+#   2. beta 0.02 — soft trust-region (GRPO scale).
+#   3. mcp_tool_bonus 0.1, dense — added per step AFTER groupwise z-scoring and
+#      the 1/T broadcast (folded into R(tau) it dilutes to ~1e-4 = dead signal).
+#      Fires once per (tool, arguments) key per trajectory, gated on
+#      execution-level success only (never on task outcome), non-read-only
+#      tools only. decay_steps 1000 >> total_step 50, so the coefficient is
+#      constant over the whole run.
+#
+# Data: the 24-task fast-iteration subset of the gradient band
+#   (train_v2_signal_v2_top24.json).
+#
+# Result (training record in results/dense_bonus/): spreadsheet (calc) adoption
+#   rises 0.03 -> 0.33 by step 23 at temp 1.0 and carries into greedy decoding
+#   (0.02 -> 0.29); held-out accuracy stays at the base level throughout.
+#   Adoption moves; competence does not.
+#
+# Note: format_pen 0.05 was active in this run (syntax / tool-name legality
+#   penalty). On the Thinking model it is a dead signal (violations ~ 0).
+
+defaults:
+    - ../osworld_rl
+
+model:
+    policy_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    policy_model_type: "qwen3vl"
+    reward_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    reward_model_type: "qwen3vl"
+    environment_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    optimized_name: "optimized"
+    optimized_reward_name: "optimized_reward"
+
+experiment:
+    project: "dense_bonus_rl"   # file name must == project name
+    total_step: 50
+    eval_every: 50
+    held_out_every: 5
+    save_every: 20
+    start_from_scratch: true
+    current_epoch: 1
+    step0_held_out_eval: false
+
+rollout:
+    action_space: "hybrid"
+    observation_type: "screenshot"
+    policy:
+        num_trial: 12                  # no effect on selection under full_coverage; kept for compatibility only
+        num_rollout_per_trial: 8
+        max_steps: 50                  # matched horizon == eval
+        temperature: 1.0
+        top_p: 1.0
+        repetition_penalty: 1.0
+        max_image_history_length: 4
+        full_coverage: true
+    policy_evaluation:
+        max_steps: 50
+        temperature: 0.0
+        max_image_history_length: 4
+        num_rollout_per_trial: 3
+        num_trial: 0
+
+hybrid:
+    enabled: true
+    mcp_enabled: true
+    tool_retriever_top_k: 18
+    tool_retriever_backend: "bm25"
+    fallback_to_gui: true
+
+reward:
+    lambda_coef: 0.0
+    eta_initial: 0.0
+    eta_decay_steps: 30
+    length_penalty_coef: 0.05
+    max_steps_ref: 50
+    step_fail_pen: 0.0
+    repeat_pen: 0.0
+    positive_advantage_only: false
+    acc_lower: 0.05
+    acc_upper: 0.95
+    cap_penalty: 0.2
+    terminate_bonus_efficient: 0.0
+    terminate_bonus_slow:      0.0
+    early_quit_pen:            0.0
+    graceful_fail_bonus:       0.0
+    false_success_pen:         0.0
+    no_progress_pen:           0.0
+    format_pen:                   0.05    # syntax / tool-name legality (dead signal on Thinking)
+    # -- dense MCP adoption signal (exec_ok-gated, post-normalization) --
+    mcp_tool_bonus:               0.1     # per-step advantage add; louder than the ~0.07 outcome part
+    mcp_tool_bonus_dense:         true    # bypass groupwise z-score / 1/T; added after normalization
+    mcp_tool_bonus_outcome_gated: false   # dense mode gates on exec_ok; explicit false for clarity
+    mcp_tool_bonus_decay_steps:   1000    # >> total_step=50 -> constant coefficient all run
+    random_reward: false
+    normalize_mode: groupwise
+
+training:
+    kl_reference: "old"           # trust-region vs pi_old; lets the narrow bonus accumulate
+    beta: 0.02
+    eps: 0.20
+    entropy_coef: 0.0
+    max_grad_norm: 1.0
+    kl_warmup_steps:      0
+    kl_warmup_multiplier: 1.0
+    policy:
+        update_per_step: 4
+        max_gen_length: 8192
+
+optimizer:
+    name: adamw
+    params:
+        learning_rate: 5.0e-6
+        scale_lr: False
+        beta1: 0.9
+        beta2: 0.999
+        weight_decay: 0.0
+        epsilon: 1e-8
+
+dataset:
+    train:
+        environment_data_dir: "train_v2_signal_v2_top24"   # 24-task fast-iteration subset
+        domain: "all"
+        example: "all"
+    evaluation:
+        environment_data_dir: "test_all_no_internet"
+        domain: "all"
+        example: "all"
+    held_out_meta: "held_out_v2_eval"
+
+wandb:
+    entity: null
+    project: "hybrid-routing-rl"
+
+context_policy: "baseline"

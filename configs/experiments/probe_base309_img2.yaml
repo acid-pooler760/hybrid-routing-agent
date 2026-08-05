@@ -1,0 +1,131 @@
+# probe_base309_img2.yaml —— img2 side of the context-RL step-30 decision-point dual probe (same side as the training observation policy)
+#
+# = probe_train_greedy_img2.yaml, four changes:
+#   1. policy_model → context_rl ckpt/epoch-30-policy
+#      ⚠️ do NOT use ckpt_history/step_*/optimized —— measured 2026-07-13: the three steps share the same
+#      inode; contents = latest live weights (step-34), not historical snapshots; real snapshots = ckpt/epoch-N-policy
+#   2. project → probe_base309_img2
+#   3. policy_evaluation.num_rollout_per_trial 1→3 (decision-point recipe, for the D13 difference-in-differences (DiD))
+#   4. held_out_meta → test_all_no_internet (full 309, user decision 2026-07-13):
+#      read-out still centers on the train-74/D13 subsets; held-48 img2 anchor = 30.8% (×3, early run archived);
+#      OOD-89 has no img2 anchor — single-point reference only.
+#      known issues in the 309 set: 93eabf48 evaluator missing a function (manual result.txt=0); vlc bba3381f structurally-dead task on the new machine.
+#
+# Read-out (pre-registered, CLAUDE.md staged 3c):
+#   anchor img2 = train-74 greedy 50.0% (runs/archive/probe_img2_base_step0);
+#   D13 paired img2 5/13 (vlc bba3381f excluded as structurally-dead).
+#   PASS = D13 (ckpt30, img2) improves over 5/13, and DiD (img2 gain − img4 gain) ≥ +15pp,
+#          and img4-side overall does not clearly drop below 51.4%.
+#   FAIL = D13 flat ∧ gap not closing → terminate context-RL; the negative result goes into the paper.
+#
+# How to run (run this probe only after the img4 side has finished and been archived):
+#   OSWORLD_LOCAL_TEMP=${oc.env:OSWORLD_LOCAL_TEMP,'/tmp/osworld_temp'} TQDM_DISABLE=1 nohup python osworld_rl.py \
+#     config=configs/experiments/probe_base309_img2.yaml > logs/probe_base309_img2.log 2>&1 &
+#   when done: mv runs/probe_base309_img2 runs/archive/probe_base309_img2
+
+defaults:
+    - ../osworld_rl
+
+model:
+    policy_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    policy_model_type: "qwen3vl"
+    reward_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    reward_model_type: "qwen3vl"
+    environment_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    optimized_name: "optimized"
+    optimized_reward_name: "optimized_reward"
+
+experiment:
+    project: "probe_base309_img2"
+    total_step: 0                  # probe: no training
+    eval_every: 99999
+    held_out_every: 99999
+    save_every: 99999
+    start_from_scratch: true
+    current_epoch: 1
+    step0_held_out_eval: true      # probe body: step-0 runs the set held_out_meta points to
+
+rollout:
+    action_space: "hybrid"
+    observation_type: "screenshot"
+    policy:
+        num_trial: 12
+        num_rollout_per_trial: 8
+        max_steps: 50
+        temperature: 1.0
+        top_p: 1.0
+        repetition_penalty: 1.0
+        max_image_history_length: 2
+    policy_evaluation:
+        max_steps: 50
+        temperature: 0.0
+        max_image_history_length: 2   # ← matches the context-RL training observation
+        num_rollout_per_trial: 3      # decision-point recipe: greedy ×3 (for D13 σ convergence)
+        num_trial: 0
+
+hybrid:
+    enabled: true
+    mcp_enabled: true
+    tool_retriever_top_k: 18
+    tool_retriever_backend: "bm25"
+    fallback_to_gui: true
+
+reward:
+    lambda_coef: 0.0
+    eta_initial: 0.0
+    eta_decay_steps: 30
+    length_penalty_coef: 0.05
+    max_steps_ref: 50
+    step_fail_pen: 0.0
+    repeat_pen: 0.0
+    positive_advantage_only: false
+    acc_lower: 0.05
+    acc_upper: 0.95
+    cap_penalty: 0.2
+    terminate_bonus_efficient: 0.0
+    terminate_bonus_slow:      0.0
+    early_quit_pen:            0.0
+    graceful_fail_bonus:       0.0
+    false_success_pen:         0.0
+    no_progress_pen:           0.0
+    random_reward: false
+    normalize_mode: groupwise
+
+training:
+    kl_reference: "old"
+    beta: 0.02
+    eps: 0.20
+    entropy_coef: 0.0
+    max_grad_norm: 1.0
+    kl_warmup_steps:      0
+    kl_warmup_multiplier: 1.0
+    policy:
+        update_per_step: 4
+        max_gen_length: 8192
+
+optimizer:
+    name: adamw
+    params:
+        learning_rate: 5.0e-6
+        scale_lr: False
+        beta1: 0.9
+        beta2: 0.999
+        weight_decay: 0.0
+        epsilon: 1e-8
+
+dataset:
+    train:
+        environment_data_dir: "train_v2_signal_v2"
+        domain: "all"
+        example: "all"
+    evaluation:
+        environment_data_dir: "test_all_no_internet"
+        domain: "all"
+        example: "all"
+    held_out_meta: "test_all_no_internet"   # probe target = full 309 (greedy ×3; incl. held-48/OOD-89)
+
+wandb:
+    entity: null
+    project: "hybrid-routing-rl"
+
+context_policy: "skip_on_mcp_success"   # ← matches the context-RL training observation

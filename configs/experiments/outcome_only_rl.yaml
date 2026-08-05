@@ -1,0 +1,139 @@
+# outcome_only_rl.yaml
+#
+# The pure outcome-only RL baseline: zero-RL (RL directly from the base model,
+#   no SFT cold-start), symmetric outcome-only reward, 74-task gradient band,
+#   full_coverage, matched horizon 50. Any later cold-start + RL is compared
+#   against this run (the only variable being the starting checkpoint).
+#
+# Reward: outcome ±1 + length penalty 0.05 + cap penalty 0.2 (tie-breakers only;
+#   no format penalty, no tool bonus — those are separate ablation knobs).
+# Optimizer: lr 5e-6 (stable; 1e-5 diverges), KL reference = old, beta 0.02.
+# Data: 74 tasks (train_v2_signal_v2), the curated gradient band (0.1<p<0.9).
+#
+# Pre-registered read-out (aggregate curves are NOT the criterion; use per-task):
+#   - Prereq: run profile_heldout_tempk first to fix the held-out 3-layer split
+#     (dead/movable/solved); during training watch held-movable acc + CLIMB count.
+#   - Step-30 decision point: CLIMB=0 AND movable flat -> stop (that is the
+#     baseline result, negative/weak); movable rising -> run to 50.
+#   - Checkpoints every 10 steps (save_every=10) — these are the base-side curve
+#     for later cold-start comparisons.
+#   - Every ~20 steps re-profile the 74-set pass-rate distribution with
+#     profile_train_tempk (bands drift with the policy).
+#   - Kill line: held-out below 29% twice in a row; entropy spike / frac_hit_cap
+#     spike -> stop.
+#
+# Expectation: on all prior evidence this run is most likely a flat line — its
+#   value is nailing down the baseline with a fixed ruler and leaving a clean
+#   reference for cold-start comparisons, not betting it climbs.
+# NOTE: 74-task full_coverage writes ~1.8TB of .pt per step; always launch with
+#   OSWORLD_LOCAL_TEMP=... (see "Known issues: JuiceFS write bandwidth").
+
+defaults:
+    - ../osworld_rl
+
+model:
+    policy_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    policy_model_type: "qwen3vl"
+    reward_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    reward_model_type: "qwen3vl"
+    environment_model: ${oc.env:MODEL_DIR,'./models'}/Qwen3-VL-8B-Thinking
+    optimized_name: "optimized"
+    optimized_reward_name: "optimized_reward"
+
+experiment:
+    project: "outcome_only_rl"   # file name must == project name
+    total_step: 50
+    eval_every: 50
+    held_out_every: 5
+    save_every: 10           # ← denser than usual: these ckpts are the base-side curve of the RFT→RL comparison
+    start_from_scratch: true
+    current_epoch: 1
+    step0_held_out_eval: true   # ← the main curve needs a step-0 anchor
+
+rollout:
+    action_space: "hybrid"
+    observation_type: "screenshot"
+    policy:
+        num_trial: 12                  # no effect on selection under full_coverage; kept for compatibility only
+        num_rollout_per_trial: 8
+        max_steps: 50                  # Route B matched horizon == eval
+        temperature: 1.0
+        top_p: 1.0
+        repetition_penalty: 1.0
+        max_image_history_length: 4
+        full_coverage: true
+    policy_evaluation:
+        max_steps: 50
+        temperature: 0.0
+        max_image_history_length: 4
+        num_rollout_per_trial: 3
+        num_trial: 0
+
+hybrid:
+    enabled: true
+    mcp_enabled: true
+    tool_retriever_top_k: 18
+    tool_retriever_backend: "bm25"
+    fallback_to_gui: true
+
+reward:
+    lambda_coef: 0.0
+    eta_initial: 0.0
+    eta_decay_steps: 30
+    length_penalty_coef: 0.05
+    max_steps_ref: 50
+    step_fail_pen: 0.0
+    repeat_pen: 0.0
+    positive_advantage_only: false
+    acc_lower: 0.05
+    acc_upper: 0.95
+    cap_penalty: 0.2
+    terminate_bonus_efficient: 0.0
+    terminate_bonus_slow:      0.0
+    early_quit_pen:            0.0
+    graceful_fail_bonus:       0.0
+    false_success_pen:         0.0
+    no_progress_pen:           0.0
+    format_pen:                0.0    # B3 pure-outcome protocol; the format signal belongs to the A3 ablation
+    mcp_tool_bonus:            0.0    # tool bonus belongs to a separate ablation line
+    random_reward: false
+    normalize_mode: groupwise
+
+training:
+    kl_reference: "old"       # trust-region vs pi_old; lets a narrow signal accumulate
+    beta: 0.02
+    eps: 0.20
+    entropy_coef: 0.0
+    max_grad_norm: 1.0
+    kl_warmup_steps:      0
+    kl_warmup_multiplier: 1.0
+    policy:
+        update_per_step: 4
+        max_gen_length: 8192
+
+optimizer:
+    name: adamw
+    params:
+        learning_rate: 5.0e-6   # stable setting (1e-5 diverges)
+        scale_lr: False
+        beta1: 0.9
+        beta2: 0.999
+        weight_decay: 0.0
+        epsilon: 1e-8
+
+dataset:
+    train:
+        environment_data_dir: "train_v2_signal_v2"   # 74 tasks, full gradient band
+        domain: "all"
+        example: "all"
+    evaluation:
+        environment_data_dir: "test_all_no_internet"
+        domain: "all"
+        example: "all"
+    held_out_meta: "held_out_v2_eval"
+
+wandb:
+    entity: null
+    project: "hybrid-routing-rl"
+
+context_policy: "baseline"
