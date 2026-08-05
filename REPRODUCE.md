@@ -1,6 +1,6 @@
 # Reproducing the paper
 
-Paper: **[Screenshots or Tools? Eliciting Tool Use and Managing Multimodal Context in Hybrid GUI–MCP Computer-Use Agents](https://arxiv.org/abs/2608.03327)** (arXiv:2608.03327).
+Paper: **[Screenshots or Tools? Eliciting Tool Use and Managing Multimodal Context in Hybrid GUI–MCP Computer-Use Agents](https://arxiv.org/abs/2608.03327)** ([arXiv:2608.03327](https://arxiv.org/abs/2608.03327)).
 
 This maps each paper claim to a command and states the measurement caveats. **Read the caveats** — several results are negative or narrowly scoped, and the aggregate curves are explicitly *not* the learning criterion.
 

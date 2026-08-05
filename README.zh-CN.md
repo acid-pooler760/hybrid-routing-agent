@@ -4,7 +4,7 @@
 
 在 [OSWorld](https://github.com/xlang-ai/OSWorld) 桌面环境上训练混合动作空间的智能体：既能用 pyautogui 点屏幕，也能调用 MCP 工具。评测用 [OSWorld-MCP](https://github.com/X-PLUG/OSWorld-MCP) 的 309 个任务，策略模型是 **Qwen3-VL-8B-Thinking**。
 
-本仓库是论文 **[Screenshots or Tools? Eliciting Tool Use and Managing Multimodal Context in Hybrid GUI–MCP Computer-Use Agents](https://arxiv.org/abs/2608.03327)**（arXiv:2608.03327）的配套代码：推理、评测、RL 训练的完整流水线，论文每张表对应的实验配置，以及任务切分。模型权重、VM 镜像等外部资源见[环境准备](#环境准备)。
+本仓库是论文 **[Screenshots or Tools? Eliciting Tool Use and Managing Multimodal Context in Hybrid GUI–MCP Computer-Use Agents](https://arxiv.org/abs/2608.03327)**（[arXiv:2608.03327](https://arxiv.org/abs/2608.03327)）的配套代码：推理、评测、RL 训练的完整流水线，论文每张表对应的实验配置，以及任务切分。模型权重、VM 镜像等外部资源见[环境准备](#环境准备)。
 
 > **两个核心结论。**
 > **(1) 动作层面：行为学得会，能力学不会。** 加一个 dense 工具 bonus，表格类工具的调用率从 **0.03 涨到 0.33**，并能保持到 greedy 解码；但 held-out 精度没有变化。瓶颈不是是否调用工具，而是调用得对不对。
