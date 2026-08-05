@@ -80,8 +80,8 @@ Docker+QEMU、MCP 注入 VM 的架构、镜像制作、硬件要求，详见 [`d
 
 | Checkpoint | Run | 是什么 | HF repo |
 |-----------|-----|-------|---------|
-| **outcome-only** | `outcome_only_rl` | 纯 outcome-only RLVR：工具调用率 0.02→0.33，held-out 不涨（[results/outcome_only](results/outcome_only/README.md)） | `redai-infra/hybrid-routing-outcome-only` |
-| **context-RL** | `context_rl` | 训推一致的上下文压缩 RL：**epoch-40** 论文工作点，37.8% @ 51% 输入成本，img2 + `skip_on_mcp_success`（[results/context_rl](results/context_rl/PROVENANCE.md)） | `redai-infra/hybrid-routing-context-rl` |
+| **outcome-only** | `outcome_only_rl` | 纯 outcome-only RLVR：工具调用率 0.02→0.33，held-out 不涨（[results/outcome_only](results/outcome_only/README.md)） | [`redai-infra/hybrid-routing-outcome-only`](https://huggingface.co/redai-infra/hybrid-routing-outcome-only) |
+| **context-RL** | `context_rl` | 训推一致的上下文压缩 RL：**epoch-40** 论文工作点，37.8% @ 51% 输入成本，img2 + `skip_on_mcp_success`（[results/context_rl](results/context_rl/PROVENANCE.md)） | [`redai-infra/hybrid-routing-context-rl`](https://huggingface.co/redai-infra/hybrid-routing-context-rl) |
 
 ```bash
 # 下载

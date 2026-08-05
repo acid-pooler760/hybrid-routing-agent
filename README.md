@@ -78,8 +78,8 @@ Two RL policy checkpoints are released on the HuggingFace Hub. Each is a complet
 
 | Checkpoint | Run | What it is | HF repo |
 |-----------|-----|-----------|---------|
-| **outcome-only** | `outcome_only_rl` | pure outcome-only RLVR — tool adoption 0.02→0.33 but held-out flat ([results/outcome_only](results/outcome_only/README.md)) | `redai-infra/hybrid-routing-outcome-only` |
-| **context-RL** | `context_rl` | train=eval context-compression RL — **epoch-40** paper operating point, 37.8% @ 51% input cost, img2 + `skip_on_mcp_success` ([results/context_rl](results/context_rl/PROVENANCE.md)) | `redai-infra/hybrid-routing-context-rl` |
+| **outcome-only** | `outcome_only_rl` | pure outcome-only RLVR — tool adoption 0.02→0.33 but held-out flat ([results/outcome_only](results/outcome_only/README.md)) | [`redai-infra/hybrid-routing-outcome-only`](https://huggingface.co/redai-infra/hybrid-routing-outcome-only) |
+| **context-RL** | `context_rl` | train=eval context-compression RL — **epoch-40** paper operating point, 37.8% @ 51% input cost, img2 + `skip_on_mcp_success` ([results/context_rl](results/context_rl/PROVENANCE.md)) | [`redai-infra/hybrid-routing-context-rl`](https://huggingface.co/redai-infra/hybrid-routing-context-rl) |
 
 ```bash
 # download
